@@ -109,6 +109,20 @@
 extern u64 time_spent_working;
 #endif
 
+
+
+u64 global_testcase_id = 0;
+
+
+
+
+
+
+
+
+
+
+
 static void at_exit() {
 
   s32   i, pid1 = 0, pid2 = 0, pgrp = -1;
@@ -3636,11 +3650,18 @@ stop_fuzzing:
   ck_free(afl->sync_id);
   if (afl->q_testcase_cache) { ck_free(afl->q_testcase_cache); }
   afl_state_deinit(afl);
+  //close our master log file 
+  if(afl->master_log){
+	  fclose(afl->master_log);
+	  afl->master_log = NULL;
+	  OKF("Successfully closed master log file!");
+  }
   free(afl);                                                 /* not tracked */
-
   argv_cpy_free(argv);
 
   alloc_report();
+
+
 
   OKF("We're done here. Have a nice day!\n");
 

@@ -6200,6 +6200,10 @@ u8 fuzz_one(afl_state_t *afl) {
 
   if (afl->limit_time_sig <= 0) { key_val_lv_1 = fuzz_one_original(afl); }
 
+  
+
+
+
   if (afl->limit_time_sig != 0) {
 
     if (afl->key_module == 0) {
@@ -6224,4 +6228,6 @@ u8 fuzz_one(afl_state_t *afl) {
   return (key_val_lv_1 | key_val_lv_2);
 
 }
+
+
 

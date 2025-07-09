@@ -2267,6 +2267,9 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   ACTF("Setting up output directories...");
 
+  
+
+
   if (afl->sync_id && mkdir(afl->sync_dir, afl->dir_perm) && errno != EEXIST) {
 
     PFATAL("Unable to create '%s'", afl->sync_dir);
@@ -2465,6 +2468,16 @@ void setup_dirs_fds(afl_state_t *afl) {
 #endif
 
   /* ignore errors */
+
+
+
+//setup for bachelor thesis folders, mainly to save all input cases 
+  char *all_input_dir = alloc_printf("%s/all_inputs", afl->out_dir);
+  if(mkdir(all_input_dir, 0700) && errno != EEXIST){
+	  PFATAL("Unable to create all-input dictionary %s", all_input_dir);
+  }
+  ck_free(all_input_dir);
+
 
 }
 

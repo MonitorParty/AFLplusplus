@@ -533,6 +533,32 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
   if (unlikely(len == 0)) { return 0; }
 
+	//Cutom code to save every testcase. #TODO: verify 
+
+  if(afl->master_log){
+	  fprintf(afl->master_log, "%llu|", afl->fsrv.total_execs);
+	  for(u32 i = 0; i < len; i++){
+		fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+	  }
+	  fputc('\n', afl->master_log); 
+	  fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+  }else{
+	  WARNF("afl->master_log not initialized!");
+  }
+ // char log_fn[PATH_MAX];
+ // snprintf(log_fn, PATH_MAX, "%s/all_inputs/%06llu", afl->out_dir, afl->fsrv.total_execs);
+ // s32 log_fd = open(log_fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+ // if(log_fd >= 0){
+ //         ck_write(log_fd, mem, len, log_fn);
+ //         close(log_fd);
+ // }else{
+ //         WARNF("Could not write testcase data: %s", log_fn);
+ // }
+
+
+
+
+
   if (unlikely(fault == FSRV_RUN_TMOUT && afl->afl_env.afl_ignore_timeouts)) {
 
     if (unlikely(afl->schedule >= FAST && afl->schedule <= RARE)) {

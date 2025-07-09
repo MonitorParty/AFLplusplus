@@ -148,6 +148,14 @@
   #error INTERESTING_32_LEN not defined - BUG!
 #endif
 
+
+
+extern u64 global_testcase_id;
+
+
+
+
+
 extern s8  interesting_8[INTERESTING_8_LEN];
 extern s16 interesting_16[INTERESTING_8_LEN + INTERESTING_16_LEN];
 extern s32
@@ -886,6 +894,10 @@ typedef struct afl_state {
   FILE *introspection_file;
   u32   bitsmap_size;
 #endif
+
+
+  //declare a file pointer to the master log file where EVERY TC is saved 
+  FILE *master_log;
 
 } afl_state_t;
 
