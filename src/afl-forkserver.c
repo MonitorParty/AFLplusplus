@@ -254,7 +254,6 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
   }
 
   execv(fsrv->target_path, argv);
-
   WARNF("Execv failed in forkserver: %s.", strerror(errno));
 
 }
@@ -510,7 +509,7 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
     /* Create a clone of our process. */
 
     child_pid = fork();
-
+	
     if (child_pid < 0) { PFATAL("Fork failed"); }
 
     /* In child process: close fds, resume execution. */
@@ -563,7 +562,6 @@ static void afl_fauxsrv_execv(afl_forkserver_t *fsrv, char **argv) {
 
       // finally: exec...
       execv(fsrv->target_path, argv);
-
       /* Use a distinctive bitmap signature to tell the parent about execv()
         falling through. */
 
@@ -982,6 +980,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   fsrv->last_run_timed_out = 0;
   fsrv->fsrv_pid = fork();
+	FILE *crashlog = fopen("restarts.bin", "a");
+  if (crashlog) {
+    fprintf(crashlog, "f#%llu\n", fsrv->total_execs);
+    fclose(crashlog);
+  }
+
+
 
   if (fsrv->fsrv_pid < 0) { PFATAL("fork() failed"); }
 
@@ -1580,12 +1585,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
         }
 
-      } else {
-
-        // The binary is most likely instrumented using AFL's tool, and we will
-        // set map_size to MAP_SIZE.
-        fsrv->real_map_size = fsrv->map_size = MAP_SIZE;
-
       }
 
     }
@@ -1717,7 +1716,7 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
   } else if (!fsrv->mem_limit) {
 
     SAYF("\n" cLRD "[-] " cRST
-         "Hmm, looks like the target binary terminated before we could complete"
+         "Hmm, looks like the target binary terminated before we could complete" 
          " a\n"
          "handshake with the injected code. You can try the following:\n\n"
 
@@ -1888,7 +1887,7 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
       fprintf(stderr, "FS crc: %016llx len: %u\n",
               hash64(fsrv->shmem_fuzz, *fsrv->shmem_fuzz_len, HASH_CONST),
               *fsrv->shmem_fuzz_len);
-      fprintf(stderr, "SHM :");
+      fprintf(stderr, "SHM :" );
       for (u32 i = 0; i < *fsrv->shmem_fuzz_len; i++)
         fprintf(stderr, "%02x", fsrv->shmem_fuzz[i]);
       fprintf(stderr, "\nORIG:");
@@ -2072,7 +2071,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     RPFATAL(res, "Unable to request new process from fork server (OOM?)");
 
   }
-
+  
 #ifdef AFL_PERSISTENT_RECORD
   // end of persistent loop?
   if (unlikely(fsrv->persistent_record &&
@@ -2166,6 +2165,17 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = -1; }
 
   fsrv->total_execs++;
+  if(fsrv->persistent_mode || 1){
+	  if(WIFEXITED(fsrv->child_status)){
+		FILE *crashlog = fopen("restarts.bin", "a");
+		  if (crashlog) {
+		    fprintf(crashlog, "n2#%llu\n", fsrv->total_execs);
+		    fclose(crashlog);
+		  }
+
+
+	  }
+  }
 
   /* Any subsequent operations on fsrv->trace_bits must not be moved by the
      compiler below this point. Past this location, fsrv->trace_bits[]
@@ -2189,6 +2199,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
 #ifdef AFL_PERSISTENT_RECORD
     if (unlikely(fsrv->persistent_record)) {
+
 
       retval = FSRV_RUN_TMOUT;
       persistent_out_fmt = "%s/hangs/RECORD:%06u,cnt:%06u%s%s";
@@ -2221,6 +2232,13 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
+  
+  FILE *crashlog = fopen("restarts.bin", "a");
+  if (crashlog) {
+    fprintf(crashlog, "c#%llu\n", fsrv->total_execs);
+    fclose(crashlog);
+  }
+
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
         WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;
@@ -2231,7 +2249,6 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 
 #ifdef AFL_PERSISTENT_RECORD
     if (unlikely(fsrv->persistent_record)) {
-
       retval = FSRV_RUN_CRASH;
       persistent_out_fmt = "%s/crashes/RECORD:%06u,cnt:%06u%s%s";
       goto store_persistent_record;
@@ -2243,10 +2260,8 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     return FSRV_RUN_CRASH;
 
   }
-
   /* success :) */
   return FSRV_RUN_OK;
-
 #ifdef AFL_PERSISTENT_RECORD
 store_persistent_record: {
 
@@ -2304,4 +2319,3 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
   list_remove(&fsrv_list, fsrv);
 
 }
-
