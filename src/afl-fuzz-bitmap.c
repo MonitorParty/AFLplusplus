@@ -31,6 +31,11 @@
 
 u16 count_class_lookup16[65536];
 
+/*Base64 table for coverting test cases to B64 for minimizing memory*/ 
+static const char b64_table[] =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+
 /* Destructively simplify trace by eliminating hit count information
    and replacing it with 0x80 or 0x01 depending on whether the tuple
    is hit or not. Called on every new crash or timeout, should be
@@ -70,6 +75,33 @@ static const u8 count_class_lookup8[256] = {
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
+
+void b64_encode_to_file(FILE *f, const uint8_t *data, size_t len) {
+  size_t i;
+  for (i = 0; i + 2 < len; i += 3) {
+    uint32_t triple = (data[i] << 16) | (data[i+1] << 8) | data[i+2];
+    fputc(b64_table[(triple >> 18) & 0x3F], f);
+    fputc(b64_table[(triple >> 12) & 0x3F], f);
+    fputc(b64_table[(triple >> 6) & 0x3F], f);
+    fputc(b64_table[triple & 0x3F], f);
+  }
+
+  if (i < len) {
+    uint32_t triple = data[i] << 16;
+    if (i + 1 < len) triple |= data[i+1] << 8;
+
+    fputc(b64_table[(triple >> 18) & 0x3F], f);
+    fputc(b64_table[(triple >> 12) & 0x3F], f);
+
+    if (i + 1 < len) {
+      fputc(b64_table[(triple >> 6) & 0x3F], f);
+      fputc('=', f);
+    } else {
+      fputc('=', f);
+      fputc('=', f);
+    }
+  }
+}
 
 /* Write bitmap to file. The bitmap is useful mostly for the secret
    -B option, to focus a separate fuzzing session on a particular
@@ -535,16 +567,18 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
 	//Cutom code to save every testcase. #TODO: verify 
 
-  if(afl->master_log){
+if(afl->master_log){
 	  fprintf(afl->master_log, "%llu|", afl->fsrv.total_execs);
-	  for(u32 i = 0; i < len; i++){
-		fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
-	  }
+	 // for(u32 i = 0; i < len; i++){
+	 //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+	 // }
+	  b64_encode_to_file(afl->master_log, (unsigned char *)mem, len);	  
 	  fputc('\n', afl->master_log); 
 	  fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
   }else{
-	  WARNF("afl->master_log not initialized!");
+	  PFATAL("afl->master_log not initialized!");
   }
+
  // char log_fn[PATH_MAX];
  // snprintf(log_fn, PATH_MAX, "%s/all_inputs/%06llu", afl->out_dir, afl->fsrv.total_execs);
  // s32 log_fd = open(log_fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
