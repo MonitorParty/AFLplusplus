@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 // AFL++ Persistent Mode Header
-#include "include/afl-fuzz.h"
+#include "../include/afl-fuzz.h"
 
 // Globale Variablen für den State
 static char buf[100] = {0};
@@ -13,7 +13,7 @@ __AFL_FUZZ_INIT();
 
 int main() {
     // Persistent Mode Loop
-    while (__AFL_LOOP(1000000)) {  // 1000 Iterationen pro Prozess
+    while (__AFL_LOOP(1000)) {  // 1000 Iterationen pro Prozess
         
         // Input lesen (direkt aus AFL)
         unsigned char *input = __AFL_FUZZ_TESTCASE_BUF;
@@ -55,6 +55,33 @@ int main() {
             char *p = NULL;
             p[0] = '!';
         }
+
+	//error 6: hang indef loop 
+	if(memcmp(buf, "HANG!", 5) == 0){
+		printf("Entering infinitive loop... :D");
+		while(1){}
+	}
+
+	//hang 7: long sleep 
+	if(memcmp(buf, "SLEEP!", 6) == 0){
+		printf("Sleeping for 10 secs...");
+		sleep(10);
+	}
+	//hang 8: cpu-inten 
+	if(memcmp(buf, "CPUHANG!", 8) == 0){
+		printf("CPU-intense loop");
+		volatile unsigned long long i = 0;
+		while(1){i++;}
+	}
+
+	//hang 8: deadlock 
+	if(memcmp(buf, "DEADLOCK!", 9) == 0){
+		printf("deadlock...");
+		while(1){
+			sleep(1);
+		}
+	}
+
 
         // Edge Detection
         if (buf[40] == 'F' && buf[41] == 'U' && buf[42] == 'Z' && buf[43] == 'Z') {

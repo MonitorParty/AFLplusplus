@@ -980,10 +980,13 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   fsrv->last_run_timed_out = 0;
   fsrv->fsrv_pid = fork();
-	FILE *crashlog = fopen("restarts.bin", "a");
-  if (crashlog) {
-    fprintf(crashlog, "f#%llu\n", fsrv->total_execs);
-    fclose(crashlog);
+  if(!fsrv->restart_log){
+	fsrv->restart_log = fopen("restarts.bin", "a");	  
+  }
+  if (fsrv->restart_log) {
+    fprintf(fsrv->restart_log, "f#%llu\n", fsrv->total_execs);
+  }else{
+	  PFATAL("Cannot open restart_log! Aborting...");
   }
 
 
@@ -2167,13 +2170,14 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   fsrv->total_execs++;
   if(fsrv->persistent_mode || 1){
 	  if(WIFEXITED(fsrv->child_status)){
-		FILE *crashlog = fopen("restarts.bin", "a");
-		  if (crashlog) {
-		    fprintf(crashlog, "n2#%llu\n", fsrv->total_execs);
-		    fclose(crashlog);
+		  if(!fsrv->restart_log){
+			  fsrv->restart_log = fopen("restarts.bin", "a");	  
 		  }
-
-
+		  if (fsrv->restart_log) {
+			  fprintf(fsrv->restart_log, "n2#%llu\n", fsrv->total_execs);
+		  }else{
+			  PFATAL("Cannot open restart_log! Aborting...");
+		  }
 	  }
   }
 
@@ -2232,13 +2236,17 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
-  
-  FILE *crashlog = fopen("restarts.bin", "a");
-  if (crashlog) {
-    fprintf(crashlog, "c#%llu\n", fsrv->total_execs);
-    fclose(crashlog);
-  }
+	  if(!fsrv->restart_log){
+		  fsrv->restart_log = fopen("restarts.bin", "a");	  
+	  }
+	  if (fsrv->restart_log) {
+		  fprintf(fsrv->restart_log, "c#%llu\n", fsrv->total_execs);
+	  }else{
+		  PFATAL("Cannot open restart_log! Aborting...");
+	  }
 
+
+  
     /* For a proper crash, set last_kill_signal to WTERMSIG, else set it to 0 */
     fsrv->last_kill_signal =
         WIFSIGNALED(fsrv->child_status) ? WTERMSIG(fsrv->child_status) : 0;

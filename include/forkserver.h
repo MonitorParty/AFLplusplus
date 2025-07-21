@@ -103,6 +103,8 @@ typedef struct afl_forkserver {
 
   /* a program that includes afl-forkserver needs to define these */
 
+	FILE *restart_log;		/* global file* for restart log */
+
   u8 *trace_bits;                       /* SHM with instrumentation bitmap  */
 
   s32 fsrv_pid,                         /* PID of the fork server           */
