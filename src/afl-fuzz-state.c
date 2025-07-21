@@ -146,14 +146,7 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
 
   list_append(&afl_states, afl);
 
-  //Init filepointer for master logfile 
-  char log_path[PATH_MAX];
-  //snprintf(log_path, sizeof(log_path), "%s/all_inputs.log", afl->out_dir);
-  afl->master_log = fopen("./master_log.bin", "a");
-  if (!afl->master_log) {
-  	FATAL("Unable to open master log file at %s", log_path);
-  }
-
+  
 }
 
 void afl_resize_map_buffers(afl_state_t *afl, u32 old_size, u32 new_size) {

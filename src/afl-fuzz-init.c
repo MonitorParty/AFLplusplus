@@ -2279,7 +2279,8 @@ void setup_dirs_fds(afl_state_t *afl) {
   if (mkdir(afl->out_dir, afl->dir_perm)) {
 
     if (errno != EEXIST) { PFATAL("Unable to create '%s'", afl->out_dir); }
-
+    
+	
     handle_existing_out_dir(afl);
 
   } else {
@@ -2314,6 +2315,22 @@ void setup_dirs_fds(afl_state_t *afl) {
 #endif                                                            /* !__sun */
 
   }
+
+  //setup files as we need 
+  //Init filepointer for master logfile 
+  char log_path[PATH_MAX];
+  snprintf(log_path, sizeof(log_path), "%s/master_log.bin", afl->out_dir);
+  afl->master_log = fopen(log_path, "a");
+  if (!afl->master_log) {
+	  PFATAL("Unable to open master log file at %s", log_path);
+  }
+  snprintf(log_path, sizeof(log_path), "%s/restarts.bin", afl->out_dir);
+  afl->fsrv.restart_log = fopen(log_path, "a");
+  if (!afl->fsrv.restart_log) {
+	  PFATAL("Unable to open restart log file at %s", log_path);
+  }
+
+
 
   if (afl->is_main_node) {
 

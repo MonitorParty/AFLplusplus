@@ -27,9 +27,9 @@
  */
 
 #include "config.h"
-#ifdef AFL_PERSISTENT_RECORD
+//#ifdef AFL_PERSISTENT_RECORD » WE NEED IT BECAUSE OF LOGGING
   #include "afl-fuzz.h"
-#endif
+//#endif
 #include "types.h"
 #include "debug.h"
 #include "common.h"
@@ -980,15 +980,6 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   fsrv->last_run_timed_out = 0;
   fsrv->fsrv_pid = fork();
-  if(!fsrv->restart_log){
-	fsrv->restart_log = fopen("restarts.bin", "a");	  
-  }
-  if (fsrv->restart_log) {
-    fprintf(fsrv->restart_log, "f#%llu\n", fsrv->total_execs);
-  }else{
-	  PFATAL("Cannot open restart_log! Aborting...");
-  }
-
 
 
   if (fsrv->fsrv_pid < 0) { PFATAL("fork() failed"); }
@@ -2171,7 +2162,10 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   if(fsrv->persistent_mode || 1){
 	  if(WIFEXITED(fsrv->child_status)){
 		  if(!fsrv->restart_log){
-			  fsrv->restart_log = fopen("restarts.bin", "a");	  
+			  //u8 fn[PATH_MAX];
+			  //sprintf(fn, "%s/restarts.bin", (u8 *)((afl_state_t *)(fsrv->afl_ptr))->out_dir);
+			  //fsrv->restart_log = fopen(fn, "a");
+			  PFATAL("Restart log not available!");
 		  }
 		  if (fsrv->restart_log) {
 			  fprintf(fsrv->restart_log, "n2#%llu\n", fsrv->total_execs);
@@ -2237,7 +2231,10 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
 
 	  if(!fsrv->restart_log){
-		  fsrv->restart_log = fopen("restarts.bin", "a");	  
+		  //u8 fn[PATH_MAX];
+		  //sprintf(fn, "%s/restarts.bin", fsrv->out_dir_path);
+		  //fsrv->restart_log = fopen(fn, "a");	  
+		  PFATAL("Restart log is not available!");
 	  }
 	  if (fsrv->restart_log) {
 		  fprintf(fsrv->restart_log, "c#%llu\n", fsrv->total_execs);
