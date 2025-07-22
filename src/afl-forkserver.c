@@ -2168,7 +2168,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 			  PFATAL("Restart log not available!");
 		  }
 		  if (fsrv->restart_log) {
-			  fprintf(fsrv->restart_log, "n2#%llu\n", fsrv->total_execs);
+			  fprintf(fsrv->restart_log, "n#%llu\n", fsrv->total_execs);
 		  }else{
 			  PFATAL("Cannot open restart_log! Aborting...");
 		  }
@@ -2206,6 +2206,17 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     }
 
 #endif
+    if(!fsrv->restart_log){
+	    //u8 fn[PATH_MAX];
+	    //sprintf(fn, "%s/restarts.bin", (u8 *)((afl_state_t *)(fsrv->afl_ptr))->out_dir);
+	    //fsrv->restart_log = fopen(fn, "a");
+	    PFATAL("Restart log not available!");
+    }
+    if (fsrv->restart_log) {
+	    fprintf(fsrv->restart_log, "t#%llu\n", fsrv->total_execs);
+    }else{
+	    PFATAL("Cannot open restart_log! Aborting...");
+    }
 
     return FSRV_RUN_TMOUT;
 
@@ -2237,7 +2248,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
 		  PFATAL("Restart log is not available!");
 	  }
 	  if (fsrv->restart_log) {
-		  fprintf(fsrv->restart_log, "c#%llu\n", fsrv->total_execs);
+		  fprintf(fsrv->restart_log, "c%d#%llu\n", fsrv->last_run_timed_out ? 1 : 0,fsrv->total_execs);
 	  }else{
 		  PFATAL("Cannot open restart_log! Aborting...");
 	  }
