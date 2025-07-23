@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "asanfuzz.h"
+#include <time.h> 
 
 u16 count_class_lookup16[65536];
 
@@ -568,7 +569,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 	//Cutom code to save every testcase. #TODO: verify 
 
 if(afl->master_log){
-	  fprintf(afl->master_log, "%llu|", afl->fsrv.total_execs);
+	  fprintf(afl->master_log, "%lu|%llu|", (unsigned long)time(NULL), afl->fsrv.total_execs);
 	 // for(u32 i = 0; i < len; i++){
 	 //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
 	 // }
@@ -578,17 +579,17 @@ if(afl->master_log){
   }else{
 	  PFATAL("afl->master_log not initialized!");
   }
-if(afl->cov_maps){
-	  fprintf(afl->cov_maps, "%llu|", afl->fsrv.total_execs);
-	 // for(u32 i = 0; i < len; i++){
-	 //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
-	 // }
-	  b64_encode_to_file(afl->cov_maps, (unsigned char *)afl->fsrv.trace_bits, afl->fsrv.map_size);	  
-	  fputc('\n', afl->cov_maps); 
-	  fflush(afl->cov_maps); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
-  }else{
-	  PFATAL("afl->fsrv.cov_maps not initialized!");
-  }
+//if(afl->cov_maps){
+//	  fprintf(afl->cov_maps, "%llu|", afl->fsrv.total_execs);
+//	 // for(u32 i = 0; i < len; i++){
+//	 //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+//	 // }
+//	  b64_encode_to_file(afl->cov_maps, (unsigned char *)afl->fsrv.trace_bits, afl->fsrv.map_size);	  
+//	  fputc('\n', afl->cov_maps); 
+//	  fflush(afl->cov_maps); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+//  }else{
+//	  PFATAL("afl->fsrv.cov_maps not initialized!");
+//  }
 
 
  // char log_fn[PATH_MAX];
@@ -906,13 +907,17 @@ may_save_fault:
 
       ++afl->total_tmouts;
 
-      if (afl->saved_hangs >= KEEP_UNIQUE_HANG) { return keeping; }
+      if (afl->saved_hangs >= KEEP_UNIQUE_HANG) { 
+	      goto ret_keeping;
+	      return keeping; }
 
       if (likely(!afl->non_instrumented_mode)) {
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
-        if (!has_new_bits(afl, afl->virgin_tmout)) { return keeping; }
+        if (!has_new_bits(afl, afl->virgin_tmout)) { 
+		goto ret_keeping;
+		return keeping; }
 
       }
 
@@ -988,8 +993,8 @@ may_save_fault:
             goto save_to_queue;
 
           } else {
-
-            return keeping;
+		  goto ret_keeping;
+            //return keeping;
 
           }
 
@@ -1041,13 +1046,19 @@ may_save_fault:
 
       ++afl->total_crashes;
 
-      if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
+      if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) {
+	      goto ret_keeping;
+	      //return keeping; 
+      }
 
       if (likely(!afl->non_instrumented_mode)) {
 
         simplify_trace(afl, afl->fsrv.trace_bits);
 
-        if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
+        if (!has_new_bits(afl, afl->virgin_crash)) { 
+		goto ret_keeping;
+		//return keeping; 
+	}
 
       }
 
@@ -1139,7 +1150,8 @@ may_save_fault:
       FATAL("Unable to execute target application");
 
     default:
-      return keeping;
+      goto ret_keeping;
+      //return keeping;
 
   }
 
@@ -1179,7 +1191,20 @@ may_save_fault:
   }
 
 #endif
+ret_keeping:
+  //we also want to save when an entry got added to the queue
+  if(keeping){
+	  if(afl->master_log){
+		  fprintf(afl->master_log, "queue-add: %lu|%llu|%06u\n", (unsigned long)time(NULL), afl->fsrv.total_execs, afl->queued_items);
+		  // for(u32 i = 0; i < len; i++){
+		  //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+		  // }
+		  fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+	  }else{
+		  PFATAL("afl->master_log not initialized!");
+	  }
 
+  }
   return keeping;
 
 }
