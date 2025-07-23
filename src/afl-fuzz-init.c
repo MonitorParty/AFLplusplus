@@ -2317,7 +2317,7 @@ void setup_dirs_fds(afl_state_t *afl) {
   }
 
   //setup files as we need 
-  //Init filepointer for master logfile 
+  //Init filepointer for master logfile, restart log and coverage log
   char log_path[PATH_MAX];
   snprintf(log_path, sizeof(log_path), "%s/master_log.bin", afl->out_dir);
   afl->master_log = fopen(log_path, "a");
@@ -2328,6 +2328,11 @@ void setup_dirs_fds(afl_state_t *afl) {
   afl->fsrv.restart_log = fopen(log_path, "a");
   if (!afl->fsrv.restart_log) {
 	  PFATAL("Unable to open restart log file at %s", log_path);
+  }
+  snprintf(log_path, sizeof(log_path), "%s/covmaps.bin", afl->out_dir);
+  afl->cov_maps = fopen(log_path, "a");
+  if (!afl->cov_maps) {
+	  PFATAL("Unable to open coverage map log file at %s", log_path);
   }
 
 

@@ -899,6 +899,8 @@ typedef struct afl_state {
   //declare a file pointer to the master log file where EVERY TC is saved 
   FILE *master_log;
 
+  //FILE * for coverage maps 
+  FILE *cov_maps;
 } afl_state_t;
 
 struct custom_mutator {

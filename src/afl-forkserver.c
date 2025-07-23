@@ -2331,6 +2331,11 @@ void afl_fsrv_killall() {
 
 void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 
+	if(fsrv->restart_log){
+		fclose(fsrv->restart_log);
+		fsrv->restart_log = NULL;
+		OKF("Restart log closed.");
+	}
   afl_fsrv_kill(fsrv);
   list_remove(&fsrv_list, fsrv);
 

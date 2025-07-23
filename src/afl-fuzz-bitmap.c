@@ -578,6 +578,18 @@ if(afl->master_log){
   }else{
 	  PFATAL("afl->master_log not initialized!");
   }
+if(afl->cov_maps){
+	  fprintf(afl->cov_maps, "%llu|", afl->fsrv.total_execs);
+	 // for(u32 i = 0; i < len; i++){
+	 //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+	 // }
+	  b64_encode_to_file(afl->cov_maps, (unsigned char *)afl->fsrv.trace_bits, afl->fsrv.map_size);	  
+	  fputc('\n', afl->cov_maps); 
+	  fflush(afl->cov_maps); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+  }else{
+	  PFATAL("afl->fsrv.cov_maps not initialized!");
+  }
+
 
  // char log_fn[PATH_MAX];
  // snprintf(log_fn, PATH_MAX, "%s/all_inputs/%06llu", afl->out_dir, afl->fsrv.total_execs);
