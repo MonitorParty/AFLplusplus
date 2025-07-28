@@ -41,12 +41,45 @@
 u64 time_spent_working = 0;
 #endif
 
+/*Base64 table for coverting test cases to B64 for minimizing memory*/ 
+static const char b64_table[] =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+void b64_encode_to_file_help(FILE *f, const uint8_t *data, size_t len) {
+  size_t i;
+  for (i = 0; i + 2 < len; i += 3) {
+    uint32_t triple = (data[i] << 16) | (data[i+1] << 8) | data[i+2];
+    fputc(b64_table[(triple >> 18) & 0x3F], f);
+    fputc(b64_table[(triple >> 12) & 0x3F], f);
+    fputc(b64_table[(triple >> 6) & 0x3F], f);
+    fputc(b64_table[triple & 0x3F], f);
+  }
+
+  if (i < len) {
+    uint32_t triple = data[i] << 16;
+    if (i + 1 < len) triple |= data[i+1] << 8;
+
+    fputc(b64_table[(triple >> 18) & 0x3F], f);
+    fputc(b64_table[(triple >> 12) & 0x3F], f);
+
+    if (i + 1 < len) {
+      fputc(b64_table[(triple >> 6) & 0x3F], f);
+      fputc('=', f);
+    } else {
+      fputc('=', f);
+      fputc('=', f);
+    }
+  }
+}
+
+
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update afl->fsrv->trace_bits. */
 
 fsrv_run_result_t __attribute__((hot)) fuzz_run_target(afl_state_t      *afl,
                                                        afl_forkserver_t *fsrv,
                                                        u32 timeout) {
+
 
 #ifdef PROFILING
   static u64      time_spent_start = 0;
@@ -460,6 +493,13 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   u64 calibration_start_us = get_cur_time_us();
   if (unlikely(afl->shm.cmplog_mode)) { q->exec_cksum = 0; }
+
+
+  //write fields for logging TC 
+  afl->last_run_length = q->len;
+  afl->last_run_buf = q->testcase_buf;
+  afl->last_run_queuenum = q->id;
+
 
   /* Be a bit more generous about timeouts when resuming sessions, or when
      trying to calibrate already-added finds. This helps avoid trouble due
@@ -1384,6 +1424,11 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
 
   u8 fault;
 
+  //write fields for TC logging 
+  afl->last_run_buf = out_buf;
+  afl->last_run_length = len;
+  afl->last_run_queuenum = -1;
+
   if (unlikely(len = write_to_testcase(afl, (void **)&out_buf, len, 0)) == 0) {
 
     return 0;
@@ -1391,6 +1436,25 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
   }
 
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+	//insert TC into db 
+  if (db_log_testcase(&afl->log_db, afl->fsrv.total_execs, out_buf, len,
+			  (u64)time(NULL), fault == FSRV_RUN_CRASH)) {
+	  PFATAL("could not log testcase");
+  }
+  if(afl->fsrv.total_execs % 1000000 == 0){
+	  db_commit(&afl->log_db);
+  }
+  //if(afl->master_log){
+  //        fprintf(afl->master_log, "%lu|%llu|", (unsigned long)time(NULL), afl->fsrv.total_execs);
+  //        // for(u32 i = 0; i < len; i++){
+  //        //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+  //        // }
+  //        b64_encode_to_file_help(afl->master_log, (unsigned char *)out_buf, len);	  
+  //        fputc('\n', afl->master_log); 
+  //        fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+  //}else{
+  //        PFATAL("afl->master_log not initialized!");
+  //}
 
   if (afl->stop_soon) { return 1; }
 

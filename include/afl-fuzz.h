@@ -45,6 +45,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "logger_db.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -901,6 +902,14 @@ typedef struct afl_state {
 
   //FILE * for coverage maps 
   FILE *cov_maps;
+
+  //db field 
+  afl_db_t log_db;
+
+  //pointer to last TC 
+  u8* last_run_buf;
+  u32 last_run_length;
+  int last_run_queuenum;
 } afl_state_t;
 
 struct custom_mutator {

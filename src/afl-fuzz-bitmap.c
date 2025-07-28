@@ -77,7 +77,7 @@ static const u8 count_class_lookup8[256] = {
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
 
-void b64_encode_to_file(FILE *f, const uint8_t *data, size_t len) {
+void b64_encode_to_file_old(FILE *f, const uint8_t *data, size_t len) {
   size_t i;
   for (i = 0; i + 2 < len; i += 3) {
     uint32_t triple = (data[i] << 16) | (data[i+1] << 8) | data[i+2];
@@ -564,21 +564,51 @@ static inline void calculate_new_bits_if_necessary(afl_state_t *afl,
 u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
                                             u32 len, u8 fault) {
 
-  if (unlikely(len == 0)) { return 0; }
+  if (unlikely(len == 0)) { 
+	  //insert TC into db 
+	  //if (db_log_testcase(&afl->log_db, afl->fsrv.total_execs, mem, len,
+	  //      		  (u64)time(NULL), fault == FSRV_RUN_CRASH)) {
+	  //        PFATAL("could not log testcase");
+	  //}
+	  //if(afl->fsrv.total_execs % 1000000 == 0){
+	  //        db_commit(&afl->log_db);
+	  //}
+	  //if(afl->master_log){
+	  //        fprintf(afl->master_log, "%lu|%llu|", (unsigned long)time(NULL), afl->fsrv.total_execs);
+	  //        // for(u32 i = 0; i < len; i++){
+	  //        //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+	  //        // }
+	  //        b64_encode_to_file(afl->master_log, (unsigned char *)mem, len);	  
+	  //        fputc('\n', afl->master_log); 
+	  //        fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+	  //}else{
+	  //        PFATAL("afl->master_log not initialized!");
+	  //}
+	  return 0;
+  }
+  u32 total_execs_saved = afl->fsrv.total_execs;
 
 	//Cutom code to save every testcase. #TODO: verify 
 
-if(afl->master_log){
-	  fprintf(afl->master_log, "%lu|%llu|", (unsigned long)time(NULL), afl->fsrv.total_execs);
-	 // for(u32 i = 0; i < len; i++){
-	 //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
-	 // }
-	  b64_encode_to_file(afl->master_log, (unsigned char *)mem, len);	  
-	  fputc('\n', afl->master_log); 
-	  fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
-  }else{
-	  PFATAL("afl->master_log not initialized!");
-  }
+  //insert TC into db 
+  //if (db_log_testcase(&afl->log_db, afl->fsrv.total_execs, mem, len,
+  //      		  (u64)time(NULL), fault == FSRV_RUN_CRASH)) {
+  //        PFATAL("could not log testcase");
+  //}
+  //if(afl->fsrv.total_execs % 1000000 == 0){
+  //        db_commit(&afl->log_db);
+  //}
+  //if(afl->master_log){
+  //        fprintf(afl->master_log, "%lu|%llu|", (unsigned long)time(NULL), afl->fsrv.total_execs);
+  //        // for(u32 i = 0; i < len; i++){
+  //        //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+  //        // }
+  //        b64_encode_to_file(afl->master_log, (unsigned char *)mem, len);	  
+  //        fputc('\n', afl->master_log); 
+  //        fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+  //}else{
+  //        PFATAL("afl->master_log not initialized!");
+  //}
 //if(afl->cov_maps){
 //	  fprintf(afl->cov_maps, "%llu|", afl->fsrv.total_execs);
 //	 // for(u32 i = 0; i < len; i++){
@@ -1194,15 +1224,24 @@ may_save_fault:
 ret_keeping:
   //we also want to save when an entry got added to the queue
   if(keeping){
-	  if(afl->master_log){
-		  fprintf(afl->master_log, "queue-add: %lu|%llu|%06u\n", (unsigned long)time(NULL), afl->fsrv.total_execs, afl->queued_items);
-		  // for(u32 i = 0; i < len; i++){
-		  //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
-		  // }
-		  fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
-	  }else{
-		  PFATAL("afl->master_log not initialized!");
+	  //insert TC into db 
+	  int ret = db_mark_in_queue(&afl->log_db, total_execs_saved, 
+				  afl->queued_items, (u64)time(NULL)); 
+	  if (ret) {
+		  
+		  printf("Error code sqlite: %i\n", ret);
+		  PFATAL("could not log queue entry");
 	  }
+
+	  //if(afl->master_log){
+	  //        fprintf(afl->master_log, "queue-add: %lu|%llu|%06u\n", (unsigned long)time(NULL), afl->fsrv.total_execs, afl->queued_items);
+	  //        // for(u32 i = 0; i < len; i++){
+	  //        //       fprintf(afl->master_log, "%02x", ((unsigned char *)mem)[i]);
+	  //        // }
+	  //        fflush(afl->master_log); //TODO OPTIONAL; MAYBE TO MUCH OVERHEAD
+	  //}else{
+	  //        PFATAL("afl->master_log not initialized!");
+	  //}
 
   }
   return keeping;

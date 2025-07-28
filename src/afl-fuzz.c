@@ -3656,6 +3656,12 @@ stop_fuzzing:
 	  afl->master_log = NULL;
 	  OKF("Successfully closed master log file!");
   }
+  OKF("Total # of TC:");
+  printf("%i", afl->fsrv.total_execs);
+  db_commit(&afl->log_db);
+  OKF("Successfully commited into db");
+  db_close(&afl->log_db);
+  OKF("Successfully closed db");
   free(afl);                                                 /* not tracked */
   argv_cpy_free(argv);
 

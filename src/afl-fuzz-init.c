@@ -28,6 +28,8 @@
 #include <limits.h>
 #include <string.h>
 #include "cmplog.h"
+#include "logger_db.h"
+
 
 #ifdef HAVE_AFFINITY
 
@@ -2334,6 +2336,13 @@ void setup_dirs_fds(afl_state_t *afl) {
   if (!afl->cov_maps) {
 	  PFATAL("Unable to open coverage map log file at %s", log_path);
   }
+  snprintf(log_path, sizeof(log_path), "%s/logs.db", afl->out_dir);
+  if(db_init(&afl->log_db, log_path)){
+	  PFATAL("Unable to open db log file at %s", log_path);
+  }
+
+
+
 
 
 
@@ -2493,12 +2502,6 @@ void setup_dirs_fds(afl_state_t *afl) {
 
 
 
-//setup for bachelor thesis folders, mainly to save all input cases 
-  char *all_input_dir = alloc_printf("%s/all_inputs", afl->out_dir);
-  if(mkdir(all_input_dir, 0700) && errno != EEXIST){
-	  PFATAL("Unable to create all-input dictionary %s", all_input_dir);
-  }
-  ck_free(all_input_dir);
 
 
 }

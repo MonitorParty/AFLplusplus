@@ -36,6 +36,7 @@
 #include "list.h"
 #include "forkserver.h"
 #include "hash.h"
+#include "logger_db.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -55,6 +56,42 @@
 
 #ifdef __linux__
   #include <dlfcn.h>
+
+/*Base64 table for coverting test cases to B64 for minimizing memory*/ 
+static const char b64_table[] =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+
+void b64_encode_to_file(FILE *f, const uint8_t *data, size_t len) {
+  size_t i;
+  for (i = 0; i + 2 < len; i += 3) {
+    uint32_t triple = (data[i] << 16) | (data[i+1] << 8) | data[i+2];
+    fputc(b64_table[(triple >> 18) & 0x3F], f);
+    fputc(b64_table[(triple >> 12) & 0x3F], f);
+    fputc(b64_table[(triple >> 6) & 0x3F], f);
+    fputc(b64_table[triple & 0x3F], f);
+  }
+
+  if (i < len) {
+    uint32_t triple = data[i] << 16;
+    if (i + 1 < len) triple |= data[i+1] << 8;
+
+    fputc(b64_table[(triple >> 18) & 0x3F], f);
+    fputc(b64_table[(triple >> 12) & 0x3F], f);
+
+    if (i + 1 < len) {
+      fputc(b64_table[(triple >> 6) & 0x3F], f);
+      fputc('=', f);
+    } else {
+      fputc('=', f);
+      fputc('=', f);
+    }
+  }
+}
+
+
+
+
 
 /* function to load nyx_helper function from libnyx.so */
 
@@ -1833,6 +1870,18 @@ u32 afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
 void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
                                                      u8 *buf, size_t len) {
 
+
+
+	//maybe we should log here... 
+	
+
+  afl_state_t *afl = ((afl_state_t *)fsrv->afl_ptr);
+  if(afl->master_log){
+	  fprintf(afl->master_log, "x1|%lu|%llu|%i|", (unsigned long)time(NULL), fsrv->total_execs, afl->last_run_queuenum);
+		  db_log_testcase(&afl->log_db, fsrv->total_execs, buf, len, time(NULL), 0);
+	  fputc('\n', afl->master_log);
+  }else{ PFATAL("afl->master_log not initialized!");
+  }
 #ifdef __linux__
   if (unlikely(fsrv->nyx_mode)) {
 
@@ -1959,6 +2008,7 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   s32 res;
   u32 exec_ms;
   u32 write_value = fsrv->last_run_timed_out;
+
 
 #ifdef AFL_PERSISTENT_RECORD
   fsrv_run_result_t retval = FSRV_RUN_OK;
@@ -2159,19 +2209,27 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
   if (!WIFSTOPPED(fsrv->child_status)) { fsrv->child_pid = -1; }
 
   fsrv->total_execs++;
+  
   if(fsrv->persistent_mode || 1){
 	  if(WIFEXITED(fsrv->child_status)){
-		  if(!fsrv->restart_log){
-			  //u8 fn[PATH_MAX];
-			  //sprintf(fn, "%s/restarts.bin", (u8 *)((afl_state_t *)(fsrv->afl_ptr))->out_dir);
-			  //fsrv->restart_log = fopen(fn, "a");
-			  PFATAL("Restart log not available!");
+		  //insert TC into db 
+		  if (db_log_restart(&((afl_state_t *)fsrv->afl_ptr)->log_db, fsrv->total_execs, 
+					  "normal")) {
+			  FATAL("could not log testcase");
 		  }
-		  if (fsrv->restart_log) {
-			  fprintf(fsrv->restart_log, "n#%llu\n", fsrv->total_execs);
-		  }else{
-			  PFATAL("Cannot open restart_log! Aborting...");
-		  }
+ 
+
+		  //if(!fsrv->restart_log){
+		  //        //u8 fn[PATH_MAX];
+		  //        //sprintf(fn, "%s/restarts.bin", (u8 *)((afl_state_t *)(fsrv->afl_ptr))->out_dir);
+		  //        //fsrv->restart_log = fopen(fn, "a");
+		  //        PFATAL("Restart log not available!");
+		  //}
+		  //if (fsrv->restart_log) {
+		  //        fprintf(fsrv->restart_log, "n#%llu\n", fsrv->total_execs);
+		  //}else{
+		  //        PFATAL("Cannot open restart_log! Aborting...");
+		  //}
 	  }
   }
 
@@ -2206,17 +2264,23 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
     }
 
 #endif
-    if(!fsrv->restart_log){
-	    //u8 fn[PATH_MAX];
-	    //sprintf(fn, "%s/restarts.bin", (u8 *)((afl_state_t *)(fsrv->afl_ptr))->out_dir);
-	    //fsrv->restart_log = fopen(fn, "a");
-	    PFATAL("Restart log not available!");
+    //insert TC into db 
+    if (db_log_restart(&((afl_state_t *)fsrv->afl_ptr)->log_db, fsrv->total_execs, 
+			    "timeout")) {
+	    FATAL("could not log testcase");
     }
-    if (fsrv->restart_log) {
-	    fprintf(fsrv->restart_log, "t#%llu\n", fsrv->total_execs);
-    }else{
-	    PFATAL("Cannot open restart_log! Aborting...");
-    }
+
+    //if(!fsrv->restart_log){
+    //        //u8 fn[PATH_MAX];
+    //        //sprintf(fn, "%s/restarts.bin", (u8 *)((afl_state_t *)(fsrv->afl_ptr))->out_dir);
+    //        //fsrv->restart_log = fopen(fn, "a");
+    //        PFATAL("Restart log not available!");
+    //}
+    //if (fsrv->restart_log) {
+    //        fprintf(fsrv->restart_log, "t#%llu\n", fsrv->total_execs);
+    //}else{
+    //        PFATAL("Cannot open restart_log! Aborting...");
+    //}
 
     return FSRV_RUN_TMOUT;
 
@@ -2240,18 +2304,23 @@ fsrv_run_result_t __attribute__((hot)) afl_fsrv_run_target(
           /* the custom crash_exitcode was returned by the target */
           (fsrv->uses_crash_exitcode &&
            WEXITSTATUS(fsrv->child_status) == fsrv->crash_exitcode))) {
+	  
+	  if (db_log_restart(&((afl_state_t *)fsrv->afl_ptr)->log_db, fsrv->total_execs, 
+				  "crash")) {
+		  FATAL("could not log testcase");
+	  }
 
-	  if(!fsrv->restart_log){
-		  //u8 fn[PATH_MAX];
-		  //sprintf(fn, "%s/restarts.bin", fsrv->out_dir_path);
-		  //fsrv->restart_log = fopen(fn, "a");	  
-		  PFATAL("Restart log is not available!");
-	  }
-	  if (fsrv->restart_log) {
-		  fprintf(fsrv->restart_log, "c%d#%llu\n", fsrv->last_run_timed_out ? 1 : 0,fsrv->total_execs);
-	  }else{
-		  PFATAL("Cannot open restart_log! Aborting...");
-	  }
+	  //if(!fsrv->restart_log){
+	  //        //u8 fn[PATH_MAX];
+	  //        //sprintf(fn, "%s/restarts.bin", fsrv->out_dir_path);
+	  //        //fsrv->restart_log = fopen(fn, "a");	  
+	  //        PFATAL("Restart log is not available!");
+	  //}
+	  //if (fsrv->restart_log) {
+	  //        fprintf(fsrv->restart_log, "c%d#%llu\n", fsrv->last_run_timed_out ? 1 : 0,fsrv->total_execs);
+	  //}else{
+	  //        PFATAL("Cannot open restart_log! Aborting...");
+	  //}
 
 
   
@@ -2336,6 +2405,7 @@ void afl_fsrv_deinit(afl_forkserver_t *fsrv) {
 		fsrv->restart_log = NULL;
 		OKF("Restart log closed.");
 	}
+
   afl_fsrv_kill(fsrv);
   list_remove(&fsrv_list, fsrv);
 

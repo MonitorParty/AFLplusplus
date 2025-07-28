@@ -1539,6 +1539,163 @@ inline void queue_testcase_retake_mem(afl_state_t *afl, struct queue_entry *q,
   }
 
 }
+/* Returns the testcase buf from the file behind this queue entry.
+   Does not the refcount. */
+
+inline u8 *queue_testcase_get_secret(afl_state_t *afl, struct queue_entry *q) {
+
+  if (likely(q->testcase_buf)) { return q->testcase_buf; }
+
+  u32    len = q->len;
+  double weight = q->weight;
+
+  // first handle if no testcase cache is configured, or if the
+  // weighting of the testcase is below average.
+
+  if (unlikely(weight < 1.0 || !afl->q_testcase_max_cache_size)) {
+
+    u8 *buf;
+
+    if (likely(q == afl->queue_cur)) {
+
+      buf = (u8 *)afl_realloc((void **)&afl->testcase_buf, len);
+
+    } else {
+
+      buf = (u8 *)afl_realloc((void **)&afl->splicecase_buf, len);
+
+    }
+
+    if (unlikely(!buf)) {
+
+      PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
+
+    }
+
+    int fd = open((char *)q->fname, O_RDONLY);
+
+    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
+
+    ck_read(fd, buf, len, q->fname);
+    close(fd);
+    return buf;
+
+  }
+
+  /* now handle the testcase cache and we know it is an interesting one */
+
+  /* Buf not cached, let's load it */
+  u32        tid = afl->q_testcase_max_cache_count;
+  static u32 do_once = 0;  // because even threaded we would want this. WIP
+
+  while (unlikely(
+      (afl->q_testcase_cache_size + len >= afl->q_testcase_max_cache_size &&
+       afl->q_testcase_cache_count > 1) ||
+      afl->q_testcase_cache_count >= afl->q_testcase_max_cache_entries - 1)) {
+
+    /* We want a max number of entries to the cache that we learn.
+       Very simple: once the cache is filled by size - that is the max. */
+
+    if (unlikely(
+            afl->q_testcase_cache_size + len >=
+                afl->q_testcase_max_cache_size &&
+            (afl->q_testcase_cache_count < afl->q_testcase_max_cache_entries &&
+             afl->q_testcase_max_cache_count <
+                 afl->q_testcase_max_cache_entries) &&
+            !do_once)) {
+
+      if (afl->q_testcase_max_cache_count > afl->q_testcase_cache_count) {
+
+        afl->q_testcase_max_cache_entries = afl->q_testcase_max_cache_count + 1;
+
+      } else {
+
+        afl->q_testcase_max_cache_entries = afl->q_testcase_cache_count + 1;
+
+      }
+
+      do_once = 1;
+      // release unneeded memory
+      afl->q_testcase_cache = (struct queue_entry **)ck_realloc(
+          afl->q_testcase_cache,
+          (afl->q_testcase_max_cache_entries + 1) * sizeof(size_t));
+
+    }
+
+    /* Cache full. We need to evict one or more to map one.
+       Get a random one which is not in use */
+
+    do {
+
+      // if the cache (MB) is not enough for the queue then this gets
+      // undesirable because q_testcase_max_cache_count grows sometimes
+      // although the number of items in the cache will not change hence
+      // more and more loops
+      tid = rand_below(afl, afl->q_testcase_max_cache_count);
+
+    } while (afl->q_testcase_cache[tid] == NULL ||
+
+             afl->q_testcase_cache[tid] == afl->queue_cur);
+
+    struct queue_entry *old_cached = afl->q_testcase_cache[tid];
+    free(old_cached->testcase_buf);
+    old_cached->testcase_buf = NULL;
+    afl->q_testcase_cache_size -= old_cached->len;
+    afl->q_testcase_cache[tid] = NULL;
+    --afl->q_testcase_cache_count;
+    ++afl->q_testcase_evictions;
+    if (tid < afl->q_testcase_smallest_free)
+      afl->q_testcase_smallest_free = tid;
+
+  }
+
+  if (unlikely(tid >= afl->q_testcase_max_cache_entries)) {
+
+    // uh we were full, so now we have to search from start
+    tid = afl->q_testcase_smallest_free;
+
+  }
+
+  // we need this while loop in case there were ever previous evictions but
+  // not in this call.
+  while (unlikely(afl->q_testcase_cache[tid] != NULL))
+    ++tid;
+
+  /* Map the test case into memory. */
+
+  int fd = open((char *)q->fname, O_RDONLY);
+
+  if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
+
+  q->testcase_buf = (u8 *)malloc(len);
+
+  if (unlikely(!q->testcase_buf)) {
+
+    PFATAL("Unable to malloc '%s' with len %u", (char *)q->fname, len);
+
+  }
+
+  ck_read(fd, q->testcase_buf, len, q->fname);
+  close(fd);
+
+  /* Register testcase as cached */
+  afl->q_testcase_cache[tid] = q;
+  afl->q_testcase_cache_size += len;
+  ++afl->q_testcase_cache_count;
+  if (likely(tid >= afl->q_testcase_max_cache_count)) {
+
+    afl->q_testcase_max_cache_count = tid + 1;
+
+  } else if (unlikely(tid == afl->q_testcase_smallest_free)) {
+
+    afl->q_testcase_smallest_free = tid + 1;
+
+  }
+
+  return q->testcase_buf;
+
+}
+
 
 /* Returns the testcase buf from the file behind this queue entry.
    Increases the refcount. */
