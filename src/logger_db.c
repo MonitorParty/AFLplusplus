@@ -10,10 +10,11 @@ int db_init(afl_db_t *db, const char *filename) {
   // Create tables
   const char *schema = 
     "CREATE TABLE IF NOT EXISTS testcases ("
-    "id INTEGER PRIMARY KEY, "
+    "id INTEGER, " // hlt, remove primary key 
     "value BLOB, "
     "timestamp INTEGER, "
-    "crash INTEGER DEFAULT 0);"
+    "crash INTEGER DEFAULT 0, "
+    "origin TEXT);"
 
     "CREATE TABLE IF NOT EXISTS queue ("
     "id INTEGER, "
@@ -37,7 +38,7 @@ int db_init(afl_db_t *db, const char *filename) {
 
   // Prepare statements
   sqlite3_prepare_v2(db->db,
-    "INSERT INTO testcases (id, value, timestamp, crash) VALUES (?, ?, ?, ?);",
+    "INSERT INTO testcases (id, value, timestamp, crash, origin) VALUES (?, ?, ?, ?, ?);",
     -1, &db->insert_testcase, 0);
 
   sqlite3_prepare_v2(db->db,
@@ -55,11 +56,12 @@ int db_init(afl_db_t *db, const char *filename) {
   return 0;
 }
 
-int db_log_testcase(afl_db_t *db, u64 id, const u8 *data, u32 len, u64 timestamp, int is_crash) {
+int db_log_testcase(afl_db_t *db, u64 id, const u8 *data, u32 len, u64 timestamp, int is_crash, const char *origin) {
   sqlite3_bind_int64(db->insert_testcase, 1, id);
   sqlite3_bind_blob(db->insert_testcase, 2, data, len, SQLITE_TRANSIENT);
   sqlite3_bind_int64(db->insert_testcase, 3, timestamp);
   sqlite3_bind_int(db->insert_testcase, 4, is_crash);
+  sqlite3_bind_text(db->insert_testcase, 5, origin, -1, SQLITE_TRANSIENT);
 
   int rc = sqlite3_step(db->insert_testcase);
   sqlite3_reset(db->insert_testcase);

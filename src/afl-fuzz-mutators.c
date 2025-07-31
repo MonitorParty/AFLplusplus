@@ -540,6 +540,16 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
       } else {
 
         fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+	//hopefully, one of the locations where we loose some TCs 
+	if (db_log_testcase(&afl->log_db, afl->fsrv.total_execs, (u8 *)&retbuf, retlen,
+			    (u64)time(NULL), fault == FSRV_RUN_CRASH, "trim_case_custom")) {
+	    PFATAL("could not log testcase");
+	}
+	if(afl->fsrv.total_execs % 1000000 == 0){
+		db_commit(&afl->log_db);
+	}
+
+
         ++afl->trim_execs;
 
         if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }

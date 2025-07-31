@@ -603,6 +603,16 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     fault = fuzz_run_target(afl, &afl->fsrv, use_tmout);
 
+
+    //hopefully, one of the locations where we loose some TCs 
+    if (db_log_testcase(&afl->log_db, afl->fsrv.total_execs, (u8 *)use_mem, q->len,
+			    (u64)time(NULL), fault == FSRV_RUN_CRASH, "calibrate_case")) {
+	    PFATAL("could not log testcase");
+    }
+    if(afl->fsrv.total_execs % 1000000 == 0){
+	    db_commit(&afl->log_db);
+    }
+
     // update the time spend in calibration after each execution, as those may
     // be slow
     update_calibration_time(afl, &calibration_start_us);
@@ -1247,6 +1257,16 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 
       fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 
+      //hopefully, one of the locations where we loose some TCs 
+      if (db_log_testcase(&afl->log_db, afl->fsrv.total_execs, in_buf, q->len,
+			      (u64)time(NULL), fault == FSRV_RUN_CRASH, "trim_case")) {
+	      PFATAL("could not log testcase");
+      }
+      if(afl->fsrv.total_execs % 1000000 == 0){
+	      db_commit(&afl->log_db);
+      }
+
+
       update_trim_time(afl, &trim_start_us);
 
       if (afl->stop_soon || fault == FSRV_RUN_ERROR) { goto abort_trimming; }
@@ -1438,7 +1458,7 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
 	//insert TC into db 
   if (db_log_testcase(&afl->log_db, afl->fsrv.total_execs, out_buf, len,
-			  (u64)time(NULL), fault == FSRV_RUN_CRASH)) {
+			  (u64)time(NULL), fault == FSRV_RUN_CRASH, "common_fuzz_stuff")) {
 	  PFATAL("could not log testcase");
   }
   if(afl->fsrv.total_execs % 1000000 == 0){
