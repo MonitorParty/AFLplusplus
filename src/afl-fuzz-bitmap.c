@@ -1226,7 +1226,7 @@ ret_keeping:
   if(keeping){
 	  //insert TC into db 
 	  int ret = db_mark_in_queue(&afl->log_db, total_execs_saved, 
-				  afl->queued_items, (u64)time(NULL)); 
+				  afl->queued_items-1, (u64)time(NULL)); 
 	  if (ret) {
 		  
 		  printf("Error code sqlite: %i\n", ret);

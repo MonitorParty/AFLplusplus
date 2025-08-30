@@ -683,10 +683,22 @@ int main(int argc, char **argv_orig, char **envp) {
   // still available: HjJkKqrv
   while (
       (opt = getopt(argc, argv,
-                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:T:"
+                    "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:Qq:Rs:S:t:T:"
                     "uUV:w:WXx:YzZ")) > 0) {
 
     switch (opt) {
+
+	    case 'q':
+		    char *endptr = NULL;
+		    errno = 0;
+		    unsigned long val = strtoul(optarg, &endptr, 10);
+		    if(errno != 0 || *endptr != '\0' || val > UINT32_MAX){
+			    FATAL("-q is u32");
+		    }
+		    afl->db_commit_modulus = val;
+		    OKF("Added q flag");
+
+		    break;
 
       case 'a':
 

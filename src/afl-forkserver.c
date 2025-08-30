@@ -1875,13 +1875,13 @@ void __attribute__((hot)) afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv,
 	//maybe we should log here... 
 	
 
-  afl_state_t *afl = ((afl_state_t *)fsrv->afl_ptr);
-  if(afl->master_log){
-	  fprintf(afl->master_log, "x1|%lu|%llu|%i|", (unsigned long)time(NULL), fsrv->total_execs, afl->last_run_queuenum);
-		  //db_log_testcase(&afl->log_db, fsrv->total_execs, buf, len, time(NULL), 0);
-	  fputc('\n', afl->master_log);
-  }else{ PFATAL("afl->master_log not initialized!");
-  }
+  //afl_state_t *afl = ((afl_state_t *)fsrv->afl_ptr);
+  //if(afl->master_log){
+  //        //fprintf(afl->master_log, "x1|%lu|%llu|%i|", (unsigned long)time(NULL), fsrv->total_execs, afl->last_run_queuenum);
+  //      	  //db_log_testcase(&afl->log_db, fsrv->total_execs, buf, len, time(NULL), 0);
+  //        //fputc('\n', afl->master_log);
+  //}else{ PFATAL("afl->master_log not initialized!");
+  //}
 #ifdef __linux__
   if (unlikely(fsrv->nyx_mode)) {
 

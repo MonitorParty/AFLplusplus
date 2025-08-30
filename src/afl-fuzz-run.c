@@ -609,7 +609,7 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 			    (u64)time(NULL), fault == FSRV_RUN_CRASH, "calibrate_case")) {
 	    PFATAL("could not log testcase");
     }
-    if(afl->fsrv.total_execs % 1000000 == 0){
+    if(afl->fsrv.total_execs % afl->db_commit_modulus == 0){
 	    db_commit(&afl->log_db);
     }
 
@@ -1262,7 +1262,7 @@ u8 trim_case(afl_state_t *afl, struct queue_entry *q, u8 *in_buf) {
 			      (u64)time(NULL), fault == FSRV_RUN_CRASH, "trim_case")) {
 	      PFATAL("could not log testcase");
       }
-      if(afl->fsrv.total_execs % 1000000 == 0){
+      if(afl->fsrv.total_execs % afl->db_commit_modulus == 0){
 	      db_commit(&afl->log_db);
       }
 
@@ -1461,7 +1461,7 @@ u8 __attribute__((hot)) common_fuzz_stuff(afl_state_t *afl, u8 *out_buf,
 			  (u64)time(NULL), fault == FSRV_RUN_CRASH, "common_fuzz_stuff")) {
 	  PFATAL("could not log testcase");
   }
-  if(afl->fsrv.total_execs % 1000000 == 0){
+  if(afl->fsrv.total_execs % afl->db_commit_modulus == 0){
 	  db_commit(&afl->log_db);
   }
   //if(afl->master_log){

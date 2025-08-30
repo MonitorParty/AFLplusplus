@@ -545,7 +545,7 @@ u8 trim_case_custom(afl_state_t *afl, struct queue_entry *q, u8 *in_buf,
 			    (u64)time(NULL), fault == FSRV_RUN_CRASH, "trim_case_custom")) {
 	    PFATAL("could not log testcase");
 	}
-	if(afl->fsrv.total_execs % 1000000 == 0){
+	if(afl->fsrv.total_execs % afl->db_commit_modulus == 0){
 		db_commit(&afl->log_db);
 	}
 

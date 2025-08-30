@@ -2340,6 +2340,7 @@ void setup_dirs_fds(afl_state_t *afl) {
   if(db_init(&afl->log_db, log_path)){
 	  PFATAL("Unable to open db log file at %s", log_path);
   }
+  printf("Start time: %i\n", time(NULL));
 
 
 

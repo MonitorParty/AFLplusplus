@@ -906,6 +906,8 @@ typedef struct afl_state {
   //db field 
   afl_db_t log_db;
 
+  u32 db_commit_modulus;
+
   //pointer to last TC 
   u8* last_run_buf;
   u32 last_run_length;
